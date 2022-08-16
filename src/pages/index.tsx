@@ -1,16 +1,70 @@
 import type { NextPage } from "next";
 import Head from "next/head";
+import { useRef } from "react";
 import { trpc } from "../utils/trpc";
 
-type TechnologyCardProps = {
-  name: string;
-  description: string;
-  documentation: string;
+const AddTodo: React.FC = () => {
+  const client = trpc.useContext();
+  const nameInput = useRef<HTMLInputElement>(null);
+
+  const { mutate } = trpc.useMutation("todo.create", {
+    onSuccess: () => {
+      client.invalidateQueries(["todo.get-all-done"]);
+    },
+  });
+
+  const handleClick = () => {
+    if (!nameInput.current?.value) return;
+
+    mutate({ name: nameInput.current?.value });
+    nameInput.current.value = "";
+  };
+
+  return (
+    <div>
+      <input ref={nameInput} className="border border-black" type="text" />
+      <input
+        type="button"
+        className="bg-blue-300 hover:bg-blue-600 p-2 text-white rounded"
+        value="add todo"
+        onClick={handleClick}
+      />
+    </div>
+  );
+};
+
+const TodoItems: React.FC = () => {
+  const client = trpc.useContext();
+  const { mutate } = trpc.useMutation("todo.toggle-done", {
+    onSuccess: () => {
+      client.invalidateQueries(["todo.get-all-done"]);
+    },
+  });
+
+  const { data, isLoading } = trpc.useQuery(["todo.get-all-done"]);
+
+  if (isLoading) return <div>Loading ...</div>;
+  if (!data) return <div>No data</div>;
+
+  return (
+    <div>
+      {data.map((e) => (
+        <div key={e.id}>
+          <span>{e.name} </span>
+          <input
+            type="checkbox"
+            checked={e.done}
+            onClick={() => {
+              mutate({ id: e.id });
+            }}
+          />
+        </div>
+      ))}
+    </div>
+  );
 };
 
 const Home: NextPage = () => {
-  const hello = trpc.useQuery(["example.hello", { text: "from tRPC" }]);
-
   return (
     <>
       <Head>
@@ -20,58 +74,10 @@ const Home: NextPage = () => {
       </Head>
 
       <main className="container mx-auto flex flex-col items-center justify-center min-h-screen p-4">
-        <h1 className="text-5xl md:text-[5rem] leading-normal font-extrabold text-gray-700">
-          Create <span className="text-purple-300">T3</span> App
-        </h1>
-        <p className="text-2xl text-gray-700">This stack uses:</p>
-        <div className="grid gap-3 pt-3 mt-3 text-center md:grid-cols-2 lg:w-2/3">
-          <TechnologyCard
-            name="NextJS"
-            description="The React framework for production"
-            documentation="https://nextjs.org/"
-          />
-          <TechnologyCard
-            name="TypeScript"
-            description="Strongly typed programming language that builds on JavaScript, giving you better tooling at any scale"
-            documentation="https://www.typescriptlang.org/"
-          />
-          <TechnologyCard
-            name="TailwindCSS"
-            description="Rapidly build modern websites without ever leaving your HTML"
-            documentation="https://tailwindcss.com/"
-          />
-          <TechnologyCard
-            name="tRPC"
-            description="End-to-end typesafe APIs made easy"
-            documentation="https://trpc.io/"
-          />
-        </div>
-        <div className="pt-6 text-2xl text-blue-500 flex justify-center items-center w-full">
-          {hello.data ? <p>{hello.data.greeting}</p> : <p>Loading..</p>}
-        </div>
+        <AddTodo />
+        <TodoItems />
       </main>
     </>
-  );
-};
-
-const TechnologyCard = ({
-  name,
-  description,
-  documentation,
-}: TechnologyCardProps) => {
-  return (
-    <section className="flex flex-col justify-center p-6 duration-500 border-2 border-gray-500 rounded shadow-xl motion-safe:hover:scale-105">
-      <h2 className="text-lg text-gray-700">{name}</h2>
-      <p className="text-sm text-gray-600">{description}</p>
-      <a
-        className="mt-3 text-sm underline text-violet-500 decoration-dotted underline-offset-2"
-        href={documentation}
-        target="_blank"
-        rel="noreferrer"
-      >
-        Documentation
-      </a>
-    </section>
   );
 };
 
